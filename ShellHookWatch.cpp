@@ -1,5 +1,7 @@
 #include <windows.h>
 #include <windowsx.h>
+#include <commctrl.h>
+#include <commdlg.h>
 #include <shlobj.h>
 #include <stdio.h>
 
@@ -16,6 +18,46 @@ BOOL OnInitDialog(HWND hwnd, HWND hwndFocus, LPARAM lParam)
     return TRUE;
 }
 
+BOOL DoSave(HWND hwnd, LPCWSTR pszFile)
+{
+    FILE *fp = _wfopen(pszFile, L"w");
+    if (!fp)
+    {
+        MessageBoxW(hwnd, L"Cannot open file", NULL, MB_ICONERROR);
+        return FALSE;
+    }
+
+    INT i, nCount = (INT)SendDlgItemMessageA(hwnd, lst1, LB_GETCOUNT, 0, 0);
+    CHAR szText[512];
+
+    for (i = 0; i < nCount; ++i)
+    {
+        SendDlgItemMessageA(hwnd, lst1, LB_GETTEXT, i, (LPARAM)szText);
+        fprintf(fp, "%s\n", szText);
+    }
+
+    fclose(fp);
+    return TRUE;
+}
+
+void OnSaveAs(HWND hwnd)
+{
+    WCHAR szFile[MAX_PATH] = L"";
+    OPENFILENAMEW ofn = { OPENFILENAME_SIZE_VERSION_400W };
+    ofn.hwndOwner = hwnd;
+    ofn.lpstrFilter = L"Text File (*.txt)\0*.txt\0";
+    ofn.lpstrFile = szFile;
+    ofn.nMaxFile = MAX_PATH;
+    ofn.lpstrTitle = L"Save As";
+    ofn.Flags = OFN_EXPLORER | OFN_ENABLESIZING | OFN_PATHMUSTEXIST |
+                OFN_OVERWRITEPROMPT;
+    ofn.lpstrDefExt = L"txt";
+    if (GetOpenFileNameW(&ofn))
+    {
+        DoSave(hwnd, szFile);
+    }
+}
+
 void OnCommand(HWND hwnd, int id, HWND hwndCtl, UINT codeNotify)
 {
     switch (id)
@@ -23,6 +65,9 @@ void OnCommand(HWND hwnd, int id, HWND hwndCtl, UINT codeNotify)
     case IDOK:
     case IDCANCEL:
         EndDialog(hwnd, id);
+        break;
+    case psh1:
+        OnSaveAs(hwnd);
         break;
     }
 }
@@ -43,8 +88,67 @@ void OnCommand(HWND hwnd, int id, HWND hwndCtl, UINT codeNotify)
 #define HSHELL_WINDOWREPLACING 14
 #define HSHELL_MONITORCHANGED 16
 #define HSHELL_HIGHBIT 0x8000
-#define HSHELL_FLASH (HSHELL_REDRAW|HSHELL_HIGHBIT)
-#define HSHELL_RUDEAPPACTIVATED (HSHELL_WINDOWACTIVATED|HSHELL_HIGHBIT)
+#ifndef HSHELL_FLASH
+    #define HSHELL_FLASH (HSHELL_REDRAW | HSHELL_HIGHBIT)
+#endif
+#ifndef HSHELL_RUDEAPPACTIVATED
+    #define HSHELL_RUDEAPPACTIVATED (HSHELL_WINDOWACTIVATED | HSHELL_HIGHBIT)
+#endif
+
+LRESULT OnShellHook(HWND hwnd, WPARAM wParam, LPARAM lParam)
+{
+    const char *name = "";
+    switch (wParam)
+    {
+    case HSHELL_WINDOWCREATED: name = "HSHELL_WINDOWCREATED"; break;
+    case HSHELL_WINDOWDESTROYED: name = "HSHELL_WINDOWDESTROYED"; break;
+    case HSHELL_ACTIVATESHELLWINDOW: name = "HSHELL_ACTIVATESHELLWINDOW"; break;
+    case HSHELL_WINDOWACTIVATED: name = "HSHELL_WINDOWACTIVATED"; break;
+    case HSHELL_GETMINRECT: name = "HSHELL_GETMINRECT"; break;
+    case HSHELL_REDRAW: name = "HSHELL_REDRAW"; break;
+    case HSHELL_TASKMAN: name = "HSHELL_TASKMAN"; break;
+    case HSHELL_LANGUAGE: name = "HSHELL_LANGUAGE"; break;
+    case HSHELL_SYSMENU: name = "HSHELL_SYSMENU"; break;
+    case HSHELL_ENDTASK: name = "HSHELL_ENDTASK"; break;
+    case HSHELL_ACCESSIBILITYSTATE: name = "HSHELL_ACCESSIBILITYSTATE"; break;
+    case HSHELL_APPCOMMAND: name = "HSHELL_APPCOMMAND"; break;
+    case HSHELL_WINDOWREPLACED: name = "HSHELL_WINDOWREPLACED"; break;
+    case HSHELL_WINDOWREPLACING: name = "HSHELL_WINDOWREPLACING"; break;
+    case HSHELL_MONITORCHANGED: name = "HSHELL_MONITORCHANGED"; break;
+    case HSHELL_FLASH: name = "HSHELL_FLASH"; break;
+    case HSHELL_RUDEAPPACTIVATED: name = "HSHELL_RUDEAPPACTIVATED"; break;
+    }
+
+    HWND hwndTarget = (HWND)lParam;
+    char buf[1024];
+    if (IsWindow(hwndTarget))
+    {
+        char sz[64];
+        GetClassNameA(hwndTarget, sz, 64);
+        DWORD style = GetWindowStyle(hwndTarget);
+        DWORD exstyle = GetWindowExStyle(hwndTarget);
+        wsprintfA(buf, "%s: hwnd:%p ClassName:%s style:%08X exstyle:%08X",
+            name, hwndTarget, sz, style, exstyle);
+    }
+    else
+    {
+        wsprintfA(buf, "%s: %p, %p", name, wParam, lParam);
+    }
+    {
+        HDC hDC = GetDC(hwnd);
+        SIZE siz;
+        SelectObject(hDC, GetWindowFont(hwnd));
+        GetTextExtentPoint32A(hDC, buf, lstrlenA(buf), &siz);
+        ReleaseDC(hwnd, hDC);
+        INT cx = SendDlgItemMessageA(hwnd, lst1, LB_GETHORIZONTALEXTENT, 0, 0);
+        if (cx < siz.cx + 32)
+            cx = siz.cx + 32;
+        SendDlgItemMessageA(hwnd, lst1, LB_SETHORIZONTALEXTENT, cx, 0);
+    }
+    SendDlgItemMessageA(hwnd, lst1, LB_ADDSTRING, 0, (LPARAM)buf);
+
+    return 0;
+}
 
 INT_PTR CALLBACK
 DialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -56,49 +160,20 @@ DialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     default:
         if (uMsg == uShellHookMsg)
         {
-            const char *name = "";
-            switch (wParam)
-            {
-            case HSHELL_WINDOWCREATED: name = "HSHELL_WINDOWCREATED"; break;
-            case HSHELL_WINDOWDESTROYED: name = "HSHELL_WINDOWDESTROYED"; break;
-            case HSHELL_ACTIVATESHELLWINDOW: name = "HSHELL_ACTIVATESHELLWINDOW"; break;
-            case HSHELL_WINDOWACTIVATED: name = "HSHELL_WINDOWACTIVATED"; break;
-            case HSHELL_GETMINRECT: name = "HSHELL_GETMINRECT"; break;
-            case HSHELL_REDRAW: name = "HSHELL_REDRAW"; break;
-            case HSHELL_TASKMAN: name = "HSHELL_TASKMAN"; break;
-            case HSHELL_LANGUAGE: name = "HSHELL_LANGUAGE"; break;
-            case HSHELL_SYSMENU: name = "HSHELL_SYSMENU"; break;
-            case HSHELL_ENDTASK: name = "HSHELL_ENDTASK"; break;
-            case HSHELL_ACCESSIBILITYSTATE: name = "HSHELL_ACCESSIBILITYSTATE"; break;
-            case HSHELL_APPCOMMAND: name = "HSHELL_APPCOMMAND"; break;
-            case HSHELL_WINDOWREPLACED: name = "HSHELL_WINDOWREPLACED"; break;
-            case HSHELL_WINDOWREPLACING: name = "HSHELL_WINDOWREPLACING"; break;
-            case HSHELL_MONITORCHANGED: name = "HSHELL_MONITORCHANGED"; break;
-            case HSHELL_FLASH: name = "HSHELL_FLASH"; break;
-            case HSHELL_RUDEAPPACTIVATED: name = "HSHELL_RUDEAPPACTIVATED"; break;
-            }
-            HWND hwndTarget = (HWND)lParam;
-            if (IsWindow(hwndTarget))
-            {
-                char sz[64];
-                GetClassNameA(hwndTarget, sz, 64);
-                DWORD style = GetWindowStyle(hwndTarget);
-                DWORD exstyle = GetWindowExStyle(hwndTarget);
-                printf("%s: %p, %p: hwnd:%p ClassName:%s style:%08X exstyle:%08X\n",
-                    name, wParam, lParam, hwndTarget, sz, style, exstyle);
-            }
-            else
-            {
-                printf("%s: %p, %p\n", name, wParam, lParam);
-            }
+            return OnShellHook(hwnd, wParam, lParam);
         }
         break;
     }
     return 0;
 }
 
-int main(void)
+INT WINAPI
+WinMain(HINSTANCE   hInstance,
+        HINSTANCE   hPrevInstance,
+        LPSTR       lpCmdLine,
+        INT         nCmdShow)
 {
-    DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(1), NULL, DialogProc);
+    InitCommonControls();
+    DialogBox(hInstance, MAKEINTRESOURCE(1), NULL, DialogProc);
     return 0;
 }

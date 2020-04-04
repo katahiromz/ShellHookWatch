@@ -19,13 +19,13 @@ LANGUAGE LANG_ENGLISH, SUBLANG_DEFAULT
 //////////////////////////////////////////////////////////////////////////////
 // RT_DIALOG
 
-1 DIALOG 0, 0, 215, 135
-CAPTION "Sample Dialog"
+1 DIALOG 0, 0, 200, 205
+CAPTION "ShellHookWatch ver.0.5 by katahiromz"
 STYLE DS_MODALFRAME | WS_POPUPWINDOW | WS_CAPTION
 FONT 9, "MS Shell Dlg"
 {
-    DEFPUSHBUTTON "OK", IDOK, 35, 115, 60, 14
-    PUSHBUTTON "Cancel", IDCANCEL, 115, 115, 60, 14
+    LISTBOX lst1, 0, 0, 200, 180, LBS_DISABLENOSCROLL | LBS_NOINTEGRALHEIGHT | LBS_HASSTRINGS | WS_VSCROLL | WS_HSCROLL | WS_TABSTOP
+    PUSHBUTTON "Save &As...", psh1, 0, 185, 60, 14
 }
 
 //////////////////////////////////////////////////////////////////////////////
