@@ -77,7 +77,20 @@ DialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             case HSHELL_FLASH: name = "HSHELL_FLASH"; break;
             case HSHELL_RUDEAPPACTIVATED: name = "HSHELL_RUDEAPPACTIVATED"; break;
             }
-            printf("%s: %p, %p\n", name, wParam, lParam);
+            HWND hwndTarget = (HWND)lParam;
+            if (IsWindow(hwndTarget))
+            {
+                char sz[64];
+                GetClassNameA(hwndTarget, sz, 64);
+                DWORD style = GetWindowStyle(hwndTarget);
+                DWORD exstyle = GetWindowExStyle(hwndTarget);
+                printf("%s: %p, %p: hwnd:%p ClassName:%s style:%08X exstyle:%08X\n",
+                    name, wParam, lParam, hwndTarget, sz, style, exstyle);
+            }
+            else
+            {
+                printf("%s: %p, %p\n", name, wParam, lParam);
+            }
         }
         break;
     }
