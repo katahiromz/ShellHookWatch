@@ -58,6 +58,11 @@ void OnSaveAs(HWND hwnd)
     }
 }
 
+void OnClear(HWND hwnd)
+{
+    SendDlgItemMessageA(hwnd, lst1, LB_RESETCONTENT, 0, 0);
+}
+
 void OnCommand(HWND hwnd, int id, HWND hwndCtl, UINT codeNotify)
 {
     switch (id)
@@ -68,6 +73,9 @@ void OnCommand(HWND hwnd, int id, HWND hwndCtl, UINT codeNotify)
         break;
     case psh1:
         OnSaveAs(hwnd);
+        break;
+    case psh2:
+        OnClear(hwnd);
         break;
     }
 }
